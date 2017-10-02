@@ -23,6 +23,7 @@ func TestRunner(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer mysqld.Stop()
+		t.Logf("Start OK %s", dsn)
 		dsn = mysqld.DSN()
 	}
 
@@ -126,4 +127,37 @@ func TestRunner(t *testing.T) {
 	if err := r.Run(context.TODO()); err != ErrEqualVersion {
 		t.Fatal("should %v got %v", err, ErrEqualVersion)
 	}
+
+	t.Run("FromDB", func(t *testing.T) {
+		if _, err := schema.WriteString("CREATE TABLE foo ( `id` INTEGER NOT NULL, `c` VARCHAR(20) );\n"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := exec.Command("git", "add", "schema.sql").Run(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "commit", "--author", "hoge <hoge@example.com>", "-m", "from db commit").Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := db.Exec("ALTER TABLE fuga ADD COLUMN `d` VARCHAR(20)"); err != nil {
+			t.Fatal(err)
+		}
+		r.FromDB = true
+
+		if err := r.Run(context.TODO()); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := db.Exec("INSERT INTO `foo` (`id`, `c`) VALUES (1, '2')"); err != nil {
+			t.Fatal(err)
+		}
+
+		var id int
+		var c string
+		if err := db.QueryRow("SELECT * FROM fuga WHERE id = 1").Scan(&id, &c); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 }

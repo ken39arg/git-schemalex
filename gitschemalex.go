@@ -27,6 +27,8 @@ type Runner struct {
 	DSN       string
 	Table     string
 	Schema    string
+	// FromDB is option for generate diff from database to current schame
+	FromDB bool
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -91,7 +93,13 @@ func (r *Runner) DeploySchema(ctx context.Context, db *sql.DB, version string) e
 }
 
 func (r *Runner) UpgradeSchema(ctx context.Context, db *sql.DB, schemaVersion string, dbVersion string) error {
-	lastSchema, err := r.schemaSpecificCommit(ctx, dbVersion)
+	var lastSchema string
+	var err error
+	if r.FromDB {
+		lastSchema, err = r.schemaSpecificDatabase(ctx, db)
+	} else {
+		lastSchema, err = r.schemaSpecificCommit(ctx, dbVersion)
+	}
 	if err != nil {
 		return err
 	}
@@ -130,6 +138,33 @@ func (r *Runner) schemaSpecificCommit(ctx context.Context, commit string) (strin
 	}
 
 	return string(byt), nil
+}
+
+func (r *Runner) schemaSpecificDatabase(ctx context.Context, db *sql.DB) (string, error) {
+	var schema string
+	// tables
+	tables, err := db.Query("SHOW TABLES")
+	if err != nil {
+		return "", err
+	}
+	defer tables.Close()
+
+	for tables.Next() {
+		var table, create string
+		if err = tables.Scan(&table); err != nil {
+			return "", err
+		}
+		if table == r.Table {
+			// skip version table
+			continue
+		}
+		if err = db.QueryRow("SHOW CREATE TABLE `"+table+"`").Scan(&table, &create); err != nil {
+			return "", err
+		}
+		// TODO remove dynamic info. ex) AUTO_INCREMENT,PARTITION
+		schema += create + ";\n"
+	}
+	return schema, nil
 }
 
 func (r *Runner) execSql(ctx context.Context, db *sql.DB, queries queryList) error {
