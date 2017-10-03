@@ -23,7 +23,6 @@ func TestRunner(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer mysqld.Stop()
-		t.Logf("Start OK %s", dsn)
 		dsn = mysqld.DSN()
 	}
 
