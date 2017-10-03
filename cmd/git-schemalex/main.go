@@ -15,6 +15,7 @@ import (
 var (
 	workspace = flag.String("workspace", "", "workspace of git")
 	deploy    = flag.Bool("deploy", false, "deploy")
+	fromdb    = flag.Bool("fromdb", false, "compare with db")
 	dsn       = flag.String("dsn", "", "")
 	table     = flag.String("table", "git_schemalex_version", "table of git revision")
 	schema    = flag.String("schema", "", "path to schema file")
@@ -50,6 +51,7 @@ func _main() error {
 		DSN:       *dsn,
 		Table:     *table,
 		Schema:    *schema,
+		FromDB:    *fromdb,
 	}
 	err := r.Run(ctx)
 	if err == gitschemalex.ErrEqualVersion {
